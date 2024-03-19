@@ -19,9 +19,10 @@ services:
       - db
     image: tggolangbot
     environment:
-      CREATE_TABLE: "yes"
+      CREATE_TABLE: "no"
       DB_SWITCH: "on"
       TOKEN: 7125415904:AAEy8G3UeKuLcABGT6Ouh_gWgp0JVPhetCY
+      API_CMC: 90671ff9-f380-42ae-8b16-fa7886d55fe9
       HOST: db
       PORT: 5432
       USER: postgres
