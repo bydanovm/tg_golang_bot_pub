@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	_ "github.com/lib/pq"
+	"github.com/mbydanov/tg_golang_bot/internal/coinmarketcup"
 	"github.com/mbydanov/tg_golang_bot/internal/database"
-	"github.com/mbydanov/tg_golang_bot/internal/wiki"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
@@ -64,7 +64,7 @@ func TelegramBot() {
 					bot.Send(msg)
 				}
 			default:
-				message := wiki.WikipediaGET(update.Message.Text)
+				message := coinmarketcup.GetLatest(update.Message.Text)
 
 				if os.Getenv("DB_SWITCH") == "on" {
 					// Отправляем username, chat_id, message, answer в БД
