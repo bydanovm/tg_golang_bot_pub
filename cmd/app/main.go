@@ -15,7 +15,7 @@ func main() {
 	// Создаем таблицу
 	if os.Getenv("CREATE_TABLE") == "yes" {
 		if os.Getenv("DB_SWITCH") == "on" {
-			if err := database.CreateTable(); err != nil {
+			if err := database.CreateTables(); err != nil {
 				panic(err)
 			}
 		}

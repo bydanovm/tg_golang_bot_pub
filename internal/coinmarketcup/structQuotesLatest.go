@@ -1,5 +1,7 @@
 package coinmarketcup
 
+import "time"
+
 type QuotesLatest struct {
 	Status status
 	Data   map[string][]cryptocurrencObject
@@ -45,7 +47,7 @@ type currency struct {
 	Market_cap               float32
 	Market_cap_dominance     float32
 	Fully_diluted_market_cap float32
-	Last_updated             string
+	Last_updated             time.Time
 }
 
 type QuotesLatestAnswer struct {
@@ -55,10 +57,11 @@ type QuotesLatestAnswer struct {
 }
 
 type QuotesLatestAnswerResult struct {
-	Id       int
-	Name     string
-	Symbol   string
-	Cmc_rank int
-	Price    float32
-	Currency string
+	Id           int
+	Name         string
+	Symbol       string
+	Cmc_rank     int
+	Price        float32
+	Currency     string
+	Last_updated time.Time
 }

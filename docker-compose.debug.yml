@@ -1,7 +1,7 @@
 version: '3.5'
 
 services:
-
+  
   db:
     image: postgres
     environment:
@@ -31,6 +31,6 @@ services:
       SSLMODE: disable
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: ./Dockerfile.debug
     ports:
-      - 3000:3000
+      - 12345:12345

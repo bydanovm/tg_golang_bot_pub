@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/mbydanov/tg_golang_bot/internal/database"
 )
 
 func GetLatest(cryptocurrencies string) (answer []string) {
@@ -41,6 +43,8 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 		s = append(s, "Возвращена ошибка: "+qla.Error_message)
 	}
 	for i := range qla.QuotesLatestAnswerResults {
+		// Пишем в базу криптовалюты
+
 		str := fmt.Sprintf("Криптовалюта: %s\nЦена: %.3f %s",
 			qla.QuotesLatestAnswerResults[i].Symbol,
 			qla.QuotesLatestAnswerResults[i].Price,
@@ -52,7 +56,6 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 
 func (qla *QuotesLatestAnswer) UnmarshalJSON(bs []byte) error {
 	var quotesLatest QuotesLatest
-	// array := []interface{}{}
 	if err := json.Unmarshal(bs, &quotesLatest); err != nil {
 		return err
 	}
@@ -60,12 +63,21 @@ func (qla *QuotesLatestAnswer) UnmarshalJSON(bs []byte) error {
 	qla.Error_message = quotesLatest.Status.Error_message
 	for _, value0 := range quotesLatest.Data {
 		qla.QuotesLatestAnswerResults = append(qla.QuotesLatestAnswerResults, QuotesLatestAnswerResult{
-			Id:       value0[0].Id,
-			Name:     value0[0].Name,
-			Symbol:   value0[0].Symbol,
-			Cmc_rank: value0[0].Cmc_rank,
-			Price:    value0[0].Quote["USD"].Price,
+			Id:           value0[0].Id,
+			Name:         value0[0].Name,
+			Symbol:       value0[0].Symbol,
+			Cmc_rank:     value0[0].Cmc_rank,
+			Price:        value0[0].Quote["USD"].Price,
+			Last_updated: value0[0].Quote["USD"].Last_updated,
 		})
+		cryptoprices := map[string]string{
+			"CryptoId":     fmt.Sprintf("%v", value0[0].Id),
+			"CryptoPrice":  fmt.Sprintf("%v", value0[0].Quote["USD"].Price),
+			"CryptoUpdate": fmt.Sprint(value0[0].Quote["USD"].Last_updated.Format("2006-01-02 15:04:05")),
+		}
+		if err := database.WriteData("cryptoprices", cryptoprices); err != nil {
+			return err
+		}
 	}
 	return nil
 }

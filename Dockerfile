@@ -1,7 +1,18 @@
-FROM alpine
+#build stage
+FROM golang:alpine AS builder
+RUN apk add --no-cache git
+WORKDIR /go/src/tg_golang_bot
+COPY . .
+RUN go get -d -v ./...
+RUN go build -o /go/bin/tg_golang_bot -v ./cmd/app/main.go
+
+# final stage
+FROM alpine:latest
 ENV LANGUAGE="en"
-COPY build/tg_bot .
-RUN apk add --no-cache ca-certificates &&\
-    chmod +x tg_bot
-EXPOSE 80/tcp
-CMD ["./tg_bot"]
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /go/bin/tg_golang_bot /tg_golang_bot
+ENTRYPOINT /tg_golang_bot
+LABEL Name=tggolangbot Version=0.0.1
+EXPOSE 3000
+EXPOSE 4000
+EXPOSE 80/tcp 

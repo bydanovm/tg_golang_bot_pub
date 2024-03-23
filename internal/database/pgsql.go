@@ -18,8 +18,8 @@ var sslmode = os.Getenv("SSLMODE")
 
 var dbInfo = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", host, port, user, password, dbname, sslmode)
 
-// Создаем таблицу users в БД при подключении к ней
-func CreateTable() error {
+// Создаем таблицы в БД при подключении к ней
+func createTable(tableName string, fields string) error {
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
@@ -27,11 +27,45 @@ func CreateTable() error {
 	}
 	defer db.Close()
 
-	//Создаем таблицу users
-	if _, err = db.Exec(`CREATE TABLE users(ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, USERNAME TEXT, CHAT_ID INT, MESSAGE TEXT, ANSWER TEXT);`); err != nil {
+	if exists, err := CheckExistsTable(tableName, "public"); err == nil && !exists {
+		//Создаем таблицу users
+		if _, err = db.Exec(`CREATE TABLE ` + tableName + `(` + fields + `);`); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Создание таблицы
+func CreateTables() error {
+	if err := createTable("users", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, USERNAME TEXT, CHAT_ID INT, MESSAGE TEXT, ANSWER TEXT"); err != nil {
+		return err
+	}
+	if err := createTable("dictcrypto", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTONAME TEXT, CRYPTOLASTPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
+		return err
+	}
+	if err := createTable("cryptoprices", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTOPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
 		return err
 	}
 	return nil
+}
+
+func CheckExistsTable(tableName string, tableSchema string) (bool, error) {
+	var count uint8
+	//Подключаемся к БД
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+	// Проверяем на существование таблицы в базе
+	row := db.QueryRow(`select exists (select * from information_schema.tables where table_name = '` + tableName + `' and table_schema = '` + tableSchema + `')::int as "count";`)
+	err = row.Scan(&count)
+	if err != nil || count == 0 {
+		return false, err
+	}
+
+	return true, err
 }
 
 // Таблицу мы создали, и нам нужно заносить в нее данные, этим займется следующая функция.
@@ -52,6 +86,32 @@ func CollectData(username string, chatid int64, message string, answer []string)
 
 	//Выполняем наш SQL запрос
 	if _, err = db.Exec(data, `@`+username, chatid, message, answ); err != nil {
+		return err
+	}
+
+	return nil
+}
+func WriteData(tableName string, Data map[string]string) error {
+	var keys, values []string
+	//Подключаемся к БД
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	//Создаем SQL запрос
+	data := `INSERT INTO ` + tableName + ` (`
+	for key, value := range Data {
+		keys = append(keys, key)
+		values = append(values, value)
+	}
+	keysStr := strings.Join(keys, ", ")
+	valuesStr := strings.Join(values, "', '")
+	data += keysStr + `) VALUES ('` + valuesStr + `');`
+
+	//Выполняем наш SQL запрос
+	if _, err = db.Exec(data); err != nil {
 		return err
 	}
 
