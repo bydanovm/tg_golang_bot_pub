@@ -65,7 +65,7 @@ func TelegramBot() {
 				}
 			default:
 				message := coinmarketcup.GetLatest(update.Message.Text)
-
+				// message := wiki.WikipediaGET(update.Message.Text)
 				if os.Getenv("DB_SWITCH") == "on" {
 					// Отправляем username, chat_id, message, answer в БД
 					if err := database.CollectData(update.Message.Chat.UserName, update.Message.Chat.ID, update.Message.Text, message); err != nil {

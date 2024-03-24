@@ -10,7 +10,7 @@ import (
 
 func main() {
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Создаем таблицу
 	if os.Getenv("CREATE_TABLE") == "yes" {
@@ -21,7 +21,7 @@ func main() {
 		}
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	// Вызываем бота
 	tgbot.TelegramBot()

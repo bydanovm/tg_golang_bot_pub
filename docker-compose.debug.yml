@@ -29,6 +29,7 @@ services:
       PASSWORD: test
       DBNAME: postgres
       SSLMODE: disable
+      LANGUAGE: en
     build:
       context: .
       dockerfile: ./Dockerfile.debug

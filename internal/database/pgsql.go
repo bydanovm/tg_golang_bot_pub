@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 )
 
@@ -41,9 +42,11 @@ func CreateTables() error {
 	if err := createTable("users", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, USERNAME TEXT, CHAT_ID INT, MESSAGE TEXT, ANSWER TEXT"); err != nil {
 		return err
 	}
+	// Справочник криптовалют с последними ценами
 	if err := createTable("dictcrypto", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTONAME TEXT, CRYPTOLASTPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
 		return err
 	}
+	// Таблица всех цен по криптовалютам
 	if err := createTable("cryptoprices", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTOPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
 		return err
 	}
@@ -116,6 +119,111 @@ func WriteData(tableName string, Data map[string]string) error {
 	}
 
 	return nil
+}
+
+// Функция чтения из БД
+// Входные данные:
+// - таблица
+// - отображаемые поля
+// - выражения
+// * нужно добавить поддержку сортировки и группировки (через интерфейсы?)
+// Выходные данные: массив-интерфейс (структура), ошибка
+func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([]interface{}, bool, error) {
+	returnValues := []interface{}{}
+	cntIter := 0
+	var str string
+	//Подключаемся к БД
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		return nil, false, err
+	}
+	defer db.Close()
+
+	columnsPtr := getFields(fields)
+	// Опредение имени колонок
+	tableName, columns, err := getFieldsName(fields)
+	if err != nil {
+		return nil, false, err
+	}
+	//Создаем SQL запрос
+	data := `SELECT ` + strings.Join(columns, ", ") + ` FROM ` + tableName + ` WHERE `
+	for _, value := range expression {
+		str += value.Join()
+	}
+	data += str[:len(str)-2] + `;`
+
+	rows, err := db.Query(data)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		// На память, прямой поиск полей в структуре (адресов)
+		// s := reflect.ValueOf(&returnValue).Elem()
+		// numCols := s.NumField()
+		// columns := make([]interface{}, numCols)
+		// for i := 0; i < numCols; i++ {
+		// 	field := s.Field(i)
+		// 	columns[i] = field.Addr().Interface()
+		// }
+
+		err := rows.Scan(columnsPtr...)
+		if err != nil {
+			return nil, false, err
+		}
+		returnValues = append(returnValues, fields)
+
+		cntIter++
+		if countIter == cntIter {
+			break
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return returnValues, true, err
+	}
+	if cntIter > 0 {
+		return returnValues, true, nil
+	}
+	return nil, false, nil
+}
+
+// Функция определения колонок (указателей) в структуре при передаче как интерфейс
+func getFields(in interface{}) (out []interface{}) {
+	val := reflect.ValueOf(in).Elem()
+	// Проверка на поинтер
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	// // Проверка на структуру
+	// if val.Kind() != reflect.Struct {
+	// 	log.Fatal("неизвестный тип")
+	// }
+
+	numCols := val.NumField()
+	columns := make([]interface{}, numCols)
+	for i := 0; i < numCols; i++ {
+		field := val.Field(i).Addr().Interface()
+		columns[i] = field
+	}
+	return columns
+}
+
+// Возврат имени структуры и имен полей
+func getFieldsName(in interface{}) (string, []string, error) {
+	val := reflect.ValueOf(in).Elem()
+	structType := val.Type()
+	tableName := structType.Name()
+	numCols := structType.NumField()
+	columns := make([]string, numCols)
+	for i := 0; i < numCols; i++ {
+		field := structType.Field(i)
+		fieldName := field.Name
+		columns[i] = fieldName
+		// println(fmt.Sprintf("%v", columns[i]))
+	}
+
+	return tableName, columns, nil
 }
 
 // Также давайте напишем функцию которая будет считать количество уникальных пользователей
