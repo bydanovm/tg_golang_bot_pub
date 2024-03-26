@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -150,7 +151,7 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 	for _, value := range expression {
 		str += value.Join()
 	}
-	data += str[:len(str)-2] + `;`
+	data += str[:len(str)-4] + `;`
 
 	rows, err := db.Query(data)
 	if err != nil {
@@ -159,20 +160,16 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 	defer rows.Close()
 
 	for rows.Next() {
-		// На память, прямой поиск полей в структуре (адресов)
-		// s := reflect.ValueOf(&returnValue).Elem()
-		// numCols := s.NumField()
-		// columns := make([]interface{}, numCols)
-		// for i := 0; i < numCols; i++ {
-		// 	field := s.Field(i)
-		// 	columns[i] = field.Addr().Interface()
-		// }
 
 		err := rows.Scan(columnsPtr...)
 		if err != nil {
 			return nil, false, err
 		}
-		returnValues = append(returnValues, fields)
+
+		returnValue := clone(fields)
+
+		returnValues = append(returnValues, returnValue)
+		log.Println(fields)
 
 		cntIter++
 		if countIter == cntIter {
@@ -224,6 +221,18 @@ func getFieldsName(in interface{}) (string, []string, error) {
 	}
 
 	return tableName, columns, nil
+}
+func clone(inter interface{}) interface{} {
+	nInter := reflect.New(reflect.TypeOf(inter).Elem())
+
+	val := reflect.ValueOf(inter).Elem()
+	nVal := nInter.Elem()
+	for i := 0; i < val.NumField(); i++ {
+		nvField := nVal.Field(i)
+		nvField.Set(val.Field(i))
+	}
+
+	return nInter.Interface()
 }
 
 // Также давайте напишем функцию которая будет считать количество уникальных пользователей

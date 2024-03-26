@@ -49,7 +49,7 @@ type Expressions struct {
 }
 
 func (exp *Expressions) Join() string {
-	return fmt.Sprintf("%s %s '%s', ", exp.Key, exp.Operator, exp.Value)
+	return fmt.Sprintf("%s %s %s AND ", exp.Key, exp.Operator, exp.Value)
 }
 
 type ReturnValues struct {

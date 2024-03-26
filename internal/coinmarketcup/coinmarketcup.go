@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/mbydanov/tg_golang_bot/internal/database"
 	"github.com/mitchellh/mapstructure"
@@ -14,12 +15,20 @@ import (
 
 func GetLatest(cryptocurrencies string) (answer []string) {
 	s := make([]string, 0)
+	// Обрабатываем входную строку, преобразовываем в массив
+	cryptoCur := strings.Split(cryptocurrencies, ",")
+
 	// Проверяем наличие криптовалюты в БД
 	fields := database.DictCrypto{}
-	expLst := []database.Expressions{
-		database.Expressions{database.CryptoName, database.EQ, cryptocurrencies},
-	}
-	rs, find, err := database.ReadDataRow(&fields, expLst, 1)
+	expLst := []database.Expressions{}
+
+	// for _, crypt := range cryptoCur {
+	expLst = append(expLst, database.Expressions{
+		Key: database.CryptoName, Operator: "IN", Value: "('" + strings.Join(cryptoCur, "','") + "')",
+	})
+	// }
+
+	rs, find, err := database.ReadDataRow(&fields, expLst, 0)
 	if err != nil {
 		s = append(s, "Возвращена ошибка при поиске в БД: "+err.Error())
 		return s
@@ -27,14 +36,17 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 	// Если запись найдена, возвращаем из БД
 	// Нужна проверка на время обновления (возможно SQL запросом)
 	if find {
-		mapstructure.Decode(rs[0], &fields)
-		str := fmt.Sprintf("Криптовалюта: %s\nЦена: %.3f %s\nОбновлено: %s",
-			fields.CryptoName,
-			fields.CryptoLastPrice,
-			"USD",
-			fields.CryptoUpdate.Format("2006-01-02 15:04:05"),
-		)
-		s = append(s, str)
+		for _, subRs := range rs {
+			subFields := database.DictCrypto{}
+			mapstructure.Decode(subRs, &subFields)
+			str := fmt.Sprintf("Криптовалюта: %s\nЦена: %.3f %s\nОбновлено: %s",
+				subFields.CryptoName,
+				subFields.CryptoLastPrice,
+				"USD",
+				subFields.CryptoUpdate.Format("2006-01-02 15:04:05"),
+			)
+			s = append(s, str)
+		}
 		return s
 	}
 	// Если записи в БД нет или время обновления истекло, то вызываем API
