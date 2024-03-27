@@ -15,27 +15,28 @@ import (
 
 func GetLatest(cryptocurrencies string) (answer []string) {
 	s := make([]string, 0)
+	var needFind []string
 	// Обрабатываем входную строку, преобразовываем в массив
 	cryptoCur := strings.Split(cryptocurrencies, ",")
-
+	for i := 0; i < len(cryptoCur); i++ {
+		cryptoCur[i] = strings.ToUpper(strings.Trim(cryptoCur[i], ` !&.,@#$%^*()-=+/\?<>{}`))
+	}
 	// Проверяем наличие криптовалюты в БД
 	fields := database.DictCrypto{}
 	expLst := []database.Expressions{}
 
-	// for _, crypt := range cryptoCur {
 	expLst = append(expLst, database.Expressions{
 		Key: database.CryptoName, Operator: "IN", Value: "('" + strings.Join(cryptoCur, "','") + "')",
 	})
-	// }
 
-	rs, find, err := database.ReadDataRow(&fields, expLst, 0)
+	rs, find, countFind, err := database.ReadDataRow(&fields, expLst, len(cryptoCur))
 	if err != nil {
 		s = append(s, "Возвращена ошибка при поиске в БД: "+err.Error())
 		return s
 	}
 	// Если запись найдена, возвращаем из БД
-	// Нужна проверка на время обновления (возможно SQL запросом)
 	if find {
+		var findCryptoCur []string
 		for _, subRs := range rs {
 			subFields := database.DictCrypto{}
 			mapstructure.Decode(subRs, &subFields)
@@ -45,9 +46,28 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 				"USD",
 				subFields.CryptoUpdate.Format("2006-01-02 15:04:05"),
 			)
+			findCryptoCur = append(findCryptoCur, subFields.CryptoName)
 			s = append(s, str)
 		}
-		return s
+		// Если нашли все валюты, то возвращаем их
+		if countFind == len(cryptoCur) {
+			return s
+		}
+		// Если не все найдены, то определяем какие валюты мы не нашли
+
+		for _, v1 := range cryptoCur {
+			for i2 := 0; i2 < len(findCryptoCur); i2++ {
+				// for i2, v2 := range findCryptoCur {
+				if v1 == findCryptoCur[i2] {
+					break
+				}
+				if v1 != findCryptoCur[i2] && i2 == len(findCryptoCur)-1 {
+					needFind = append(needFind, v1)
+				}
+			}
+		}
+	} else {
+		needFind = cryptoCur
 	}
 	// Если записи в БД нет или время обновления истекло, то вызываем API
 	client := &http.Client{}
@@ -57,7 +77,9 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 	}
 
 	q := url.Values{}
-	q.Add("symbol", cryptocurrencies)
+	q.Add("symbol", strings.Join(needFind, ","))
+	//
+	// q.Add("symbol", cryptocurrencies)
 	q.Add("convert", "USD")
 
 	req.Header.Set("Accepts", "application/json")
@@ -116,7 +138,7 @@ func (qla *QuotesLatestAnswer) UnmarshalJSON(bs []byte) error {
 			"CryptoLastPrice": fmt.Sprintf("%v", value0[0].Quote["USD"].Price),
 			"CryptoUpdate":    fmt.Sprint(value0[0].Quote["USD"].Last_updated.Format("2006-01-02 15:04:05")),
 		}
-		if err := database.WriteData("DictCrypto", dictCryptos); err != nil {
+		if err := database.WriteData("dictcrypto", dictCryptos); err != nil {
 			return err
 		}
 		if err := database.WriteData("cryptoprices", cryptoprices); err != nil {

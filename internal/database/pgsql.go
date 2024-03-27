@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -21,17 +20,26 @@ var sslmode = os.Getenv("SSLMODE")
 var dbInfo = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", host, port, user, password, dbname, sslmode)
 
 // Создаем таблицы в БД при подключении к ней
-func createTable(tableName string, fields string) error {
+func createTable(tableStruct interface{}) error {
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-
+	tableName, fields, fieldsTypes, err := getFieldsName(tableStruct)
+	if err != nil {
+		return err
+	}
+	tableName = strings.ToLower(tableName)
 	if exists, err := CheckExistsTable(tableName, "public"); err == nil && !exists {
 		//Создаем таблицу users
-		if _, err = db.Exec(`CREATE TABLE ` + tableName + `(` + fields + `);`); err != nil {
+		var fieldsNameType []string
+		for i := 0; i < len(fields); i++ {
+			fieldsNameType = append(fieldsNameType, fields[i]+` `+fieldsTypes[i])
+		}
+		query := `CREATE TABLE ` + tableName + `(` + strings.Join(fieldsNameType, ",") + `);`
+		if _, err = db.Exec(query); err != nil {
 			return err
 		}
 	}
@@ -40,15 +48,19 @@ func createTable(tableName string, fields string) error {
 
 // Создание таблицы
 func CreateTables() error {
-	if err := createTable("users", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, USERNAME TEXT, CHAT_ID INT, MESSAGE TEXT, ANSWER TEXT"); err != nil {
+	users := Users{}
+	dictCrypto := DictCrypto{}
+	cryptoPrices := Cryptoprices{}
+
+	if err := createTable(&users); err != nil {
 		return err
 	}
 	// Справочник криптовалют с последними ценами
-	if err := createTable("dictcrypto", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTONAME TEXT, CRYPTOLASTPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
+	if err := createTable(&dictCrypto); err != nil {
 		return err
 	}
 	// Таблица всех цен по криптовалютам
-	if err := createTable("cryptoprices", "ID SERIAL PRIMARY KEY, TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP, CRYPTOID INT, CRYPTOPRICE NUMERIC(15,3), CRYPTOUPDATE TIMESTAMP"); err != nil {
+	if err := createTable(&cryptoPrices); err != nil {
 		return err
 	}
 	return nil
@@ -129,23 +141,27 @@ func WriteData(tableName string, Data map[string]string) error {
 // - выражения
 // * нужно добавить поддержку сортировки и группировки (через интерфейсы?)
 // Выходные данные: массив-интерфейс (структура), ошибка
-func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([]interface{}, bool, error) {
+func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([]interface{}, bool, int, error) {
 	returnValues := []interface{}{}
 	cntIter := 0
 	var str string
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return nil, false, err
+		return nil, false, 0, err
 	}
 	defer db.Close()
 
 	columnsPtr := getFields(fields)
 	// Опредение имени колонок
-	tableName, columns, err := getFieldsName(fields)
+	tableName, columns, _, err := getFieldsName(fields)
 	if err != nil {
-		return nil, false, err
+		return nil, false, 0, err
 	}
+	// var columnsArr []string
+	// for k, _ := range columns {
+	// 	columnsArr = append(columnsArr, k)
+	// }
 	//Создаем SQL запрос
 	data := `SELECT ` + strings.Join(columns, ", ") + ` FROM ` + tableName + ` WHERE `
 	for _, value := range expression {
@@ -155,7 +171,7 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 
 	rows, err := db.Query(data)
 	if err != nil {
-		return nil, false, err
+		return nil, false, 0, err
 	}
 	defer rows.Close()
 
@@ -163,13 +179,13 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 
 		err := rows.Scan(columnsPtr...)
 		if err != nil {
-			return nil, false, err
+			return nil, false, 0, err
 		}
 
 		returnValue := clone(fields)
 
 		returnValues = append(returnValues, returnValue)
-		log.Println(fields)
+		// log.Println(fields)
 
 		cntIter++
 		if countIter == cntIter {
@@ -177,12 +193,12 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 		}
 	}
 	if err = rows.Err(); err != nil {
-		return returnValues, true, err
+		return returnValues, true, cntIter, err
 	}
 	if cntIter > 0 {
-		return returnValues, true, nil
+		return returnValues, true, cntIter, nil
 	}
-	return nil, false, nil
+	return nil, false, 0, nil
 }
 
 // Функция определения колонок (указателей) в структуре при передаче как интерфейс
@@ -207,20 +223,26 @@ func getFields(in interface{}) (out []interface{}) {
 }
 
 // Возврат имени структуры и имен полей
-func getFieldsName(in interface{}) (string, []string, error) {
+func getFieldsName(in interface{}) (string, []string, []string, error) {
 	val := reflect.ValueOf(in).Elem()
 	structType := val.Type()
 	tableName := structType.Name()
 	numCols := structType.NumField()
 	columns := make([]string, numCols)
+	fieldTypes := make([]string, numCols)
 	for i := 0; i < numCols; i++ {
 		field := structType.Field(i)
+		tag := field.Tag
 		fieldName := field.Name
+		fieldType := tag.Get("sql_type")
+		// columns[fieldName] = fieldType
 		columns[i] = fieldName
+		fieldTypes[i] = fieldType
+		// fieldTypes[i] = fieldType
 		// println(fmt.Sprintf("%v", columns[i]))
 	}
 
-	return tableName, columns, nil
+	return tableName, columns, fieldTypes, nil
 }
 func clone(inter interface{}) interface{} {
 	nInter := reflect.New(reflect.TypeOf(inter).Elem())

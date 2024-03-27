@@ -1,5 +1,8 @@
 version: '3.5'
 
+volumes:
+  pgdata:
+  
 services:
 
   db:
@@ -7,7 +10,8 @@ services:
     environment:
       POSTGRES_PASSWORD: test
     volumes:
-      - ~/pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      
   adminer:
     image: adminer
     restart: always
@@ -31,6 +35,7 @@ services:
       PASSWORD: test
       DBNAME: postgres
       SSLMODE: disable
+      LANGUAGE: en
     build:
       context: .
       dockerfile: ./Dockerfile
