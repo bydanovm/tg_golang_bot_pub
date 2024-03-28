@@ -1,9 +1,9 @@
 #build stage
-FROM tggolangbot:staging AS builder
-# RUN apk add --no-cache git
+FROM golang:alpine AS builder
+RUN apk add --no-cache git
 WORKDIR /go/src/tg_golang_bot
 COPY . .
-# RUN go get -d -v ./...
+RUN go get -d -v ./...
 RUN go build -o /go/bin/tg_golang_bot -v ./cmd/app/main.go
 
 # final stage
