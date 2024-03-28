@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mbydanov/tg_golang_bot/internal/database"
+	retrievercoins "github.com/mbydanov/tg_golang_bot/internal/retrieverCoins"
 	"github.com/mbydanov/tg_golang_bot/internal/tgbot"
 )
 
@@ -23,6 +24,8 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
+	// Вызов функции автоматического обновления КВ
+	go retrievercoins.RunRetrieverCoins(300)
 	// Вызываем бота
 	tgbot.TelegramBot()
 }

@@ -133,6 +133,38 @@ func WriteData(tableName string, Data map[string]string) error {
 
 	return nil
 }
+func UpdateData(tableName string, Data map[string]string, expression []Expressions) error {
+	//Подключаемся к БД
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	//Создаем SQL запрос
+	data := `UPDATE ` + tableName + ` SET `
+	for key, value := range Data {
+		data += key + " = '" + value + "', "
+	}
+	data = data[:len(data)-2] + " WHERE "
+
+	// keysStr := strings.Join(keys, ", ")
+	// valuesStr := strings.Join(values, "', '")
+	// data += keysStr + `) VALUES ('` + valuesStr + `');`
+
+	// var str string
+	for _, value := range expression {
+		data += value.Join()
+	}
+	data = data[:len(data)-4] + `;`
+
+	//Выполняем наш SQL запрос
+	if _, err = db.Exec(data); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // Функция чтения из БД
 // Входные данные:
