@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mbydanov/tg_golang_bot/internal/database"
+	"github.com/mbydanov/tg_golang_bot/internal/models"
 	retrievercoins "github.com/mbydanov/tg_golang_bot/internal/retrieverCoins"
 	"github.com/mbydanov/tg_golang_bot/internal/tgbot"
 )
@@ -23,9 +24,9 @@ func main() {
 	}
 
 	time.Sleep(2 * time.Second)
-
+	ch := make(chan models.StatusRetriever)
 	// Вызов функции автоматического обновления КВ
-	go retrievercoins.RunRetrieverCoins(300)
+	go retrievercoins.RunRetrieverCoins(300, ch)
 	// Вызываем бота
-	tgbot.TelegramBot()
+	tgbot.TelegramBot(ch)
 }

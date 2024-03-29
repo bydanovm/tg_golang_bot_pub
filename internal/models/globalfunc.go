@@ -1,5 +1,10 @@
 package models
 
+import (
+	"fmt"
+	"time"
+)
+
 // Функция проверяет массив на пустые ячейки и удаляет их
 func ChkArrayBySpace(array []string) []string {
 	var tmpArray []string
@@ -21,4 +26,14 @@ func FindCellAndDelete(array []string, findValue string) []string {
 		}
 	}
 	return array
+}
+
+// Функция конвертации времени в МСК часовой пояс
+func ConvertDateTimeToMSK(iTime time.Time) (string, error) {
+	dateTime := iTime
+	dateTimeLocUTC3, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		return "", fmt.Errorf("ConvertDateTimeToMSK:Time convert error-" + err.Error())
+	}
+	return dateTime.In(dateTimeLocUTC3).Format(layout), nil
 }

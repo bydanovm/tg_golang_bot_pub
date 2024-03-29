@@ -109,20 +109,24 @@ func GetLatest(cryptocurrencies string) (answer []string) {
 		)
 		s = append(s, str)
 
+		dateTime, err := models.ConvertDateTimeToMSK(qla.QuotesLatestAnswerResults[i].Last_updated)
+		if err != nil {
+			s = append(s, fmt.Sprintf("getAndSaveFromAPI:"+err.Error()))
+		}
 		// Добавление найденной валюты в БД текущих цен и справочник валют
 		cryptoprices := map[string]string{
 			"CryptoId":     fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Id),
 			"CryptoPrice":  fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Price),
-			"CryptoUpdate": fmt.Sprint(qla.QuotesLatestAnswerResults[i].Last_updated.Format("2006-01-02 15:04:05")),
+			"CryptoUpdate": dateTime,
 		}
 		dictCryptos := map[string]string{
 			"CryptoId":        fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Id),
 			"CryptoName":      fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Symbol),
 			"CryptoLastPrice": fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Price),
-			"CryptoUpdate":    fmt.Sprint(qla.QuotesLatestAnswerResults[i].Last_updated.Format("2006-01-02 15:04:05")),
+			"CryptoUpdate":    dateTime,
 		}
 		if err := database.WriteData("dictcrypto", dictCryptos); err != nil {
-			s = append(s, "Возвращена ошибка:\n"+err.Error())
+			s = append(s, fmt.Sprintf("GetLatest:"+err.Error()))
 		}
 		if err := database.WriteData("cryptoprices", cryptoprices); err != nil {
 			s = append(s, "Возвращена ошибка:\n"+err.Error())

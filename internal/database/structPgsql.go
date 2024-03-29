@@ -24,6 +24,10 @@ type DictCrypto struct {
 }
 
 const (
+	sqlConErr       string = "SQL error connection"
+	sqlExecErr      string = "SQL error exec query"
+	sqlScanErr      string = "SQL error scan"
+	sqlSomeOneErr   string = "SQL error"
 	EQ              string = "="
 	NotEQ           string = "!="
 	Empty           string = ""

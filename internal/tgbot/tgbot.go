@@ -8,12 +8,13 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/mbydanov/tg_golang_bot/internal/coinmarketcup"
 	"github.com/mbydanov/tg_golang_bot/internal/database"
+	"github.com/mbydanov/tg_golang_bot/internal/models"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
 
 // Создаем бота
-func TelegramBot() {
+func TelegramBot(statusRetriever chan models.StatusRetriever) {
 	// Создаем бота
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
 	if err != nil {
@@ -23,6 +24,20 @@ func TelegramBot() {
 	// Устанавливаем время обновления
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
+
+	// Функция отправки сообщения об ошибке из внешних сервисов
+	go func(chatID int64) {
+		for {
+			// // Отправляем сообщение об ошибке
+			val, ok := <-statusRetriever
+			if ok {
+				if val.MsgError != nil {
+					msg := tgbotapi.NewMessage(chatID, val.MsgError.Error())
+					bot.Send(msg)
+				}
+			}
+		}
+	}(786751823)
 
 	// Получаем обновления от бота
 	updates, err := bot.GetUpdatesChan(u)

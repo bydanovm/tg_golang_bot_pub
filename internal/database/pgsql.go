@@ -24,15 +24,15 @@ func createTable(tableStruct interface{}) error {
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("createTable:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 	tableName, fields, fieldsTypes, err := getFieldsName(tableStruct)
 	if err != nil {
-		return err
+		return fmt.Errorf("createTable:" + err.Error())
 	}
 	tableName = strings.ToLower(tableName)
-	if exists, err := CheckExistsTable(tableName, "public"); err == nil && !exists {
+	if exists, err := checkExistsTable(tableName, "public"); err == nil && !exists {
 		//Создаем таблицу users
 		var fieldsNameType []string
 		for i := 0; i < len(fields); i++ {
@@ -40,8 +40,10 @@ func createTable(tableStruct interface{}) error {
 		}
 		query := `CREATE TABLE ` + tableName + `(` + strings.Join(fieldsNameType, ",") + `);`
 		if _, err = db.Exec(query); err != nil {
-			return err
+			return fmt.Errorf("createTable:" + sqlExecErr + ":" + err.Error())
 		}
+	} else if err != nil {
+		return fmt.Errorf("createTable:" + err.Error())
 	}
 	return nil
 }
@@ -53,32 +55,34 @@ func CreateTables() error {
 	cryptoPrices := Cryptoprices{}
 
 	if err := createTable(&users); err != nil {
-		return err
+		return fmt.Errorf("CreateTables:" + err.Error())
 	}
 	// Справочник криптовалют с последними ценами
 	if err := createTable(&dictCrypto); err != nil {
-		return err
+		return fmt.Errorf("CreateTables:" + err.Error())
 	}
 	// Таблица всех цен по криптовалютам
 	if err := createTable(&cryptoPrices); err != nil {
-		return err
+		return fmt.Errorf("CreateTables:" + err.Error())
 	}
 	return nil
 }
 
-func CheckExistsTable(tableName string, tableSchema string) (bool, error) {
+func checkExistsTable(tableName string, tableSchema string) (bool, error) {
 	var count uint8
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return false, err
+		return false,
+			fmt.Errorf("checkExistsTable:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 	// Проверяем на существование таблицы в базе
 	row := db.QueryRow(`select exists (select * from information_schema.tables where table_name = '` + tableName + `' and table_schema = '` + tableSchema + `')::int as "count";`)
 	err = row.Scan(&count)
 	if err != nil || count == 0 {
-		return false, err
+		return false,
+			fmt.Errorf("checkExistsTable:" + sqlScanErr + ":" + err.Error())
 	}
 
 	return true, err
@@ -90,7 +94,7 @@ func CollectData(username string, chatid int64, message string, answer []string)
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("CollectData:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 
@@ -102,7 +106,7 @@ func CollectData(username string, chatid int64, message string, answer []string)
 
 	//Выполняем наш SQL запрос
 	if _, err = db.Exec(data, `@`+username, chatid, message, answ); err != nil {
-		return err
+		return fmt.Errorf("CollectData:" + sqlExecErr + ":" + err.Error())
 	}
 
 	return nil
@@ -112,7 +116,7 @@ func WriteData(tableName string, Data map[string]string) error {
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("WriteData:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 
@@ -128,7 +132,7 @@ func WriteData(tableName string, Data map[string]string) error {
 
 	//Выполняем наш SQL запрос
 	if _, err = db.Exec(data); err != nil {
-		return err
+		return fmt.Errorf("WriteData:" + sqlExecErr + ":" + err.Error())
 	}
 
 	return nil
@@ -137,7 +141,7 @@ func UpdateData(tableName string, Data map[string]string, expression []Expressio
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("UpdateData:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 
@@ -160,7 +164,7 @@ func UpdateData(tableName string, Data map[string]string, expression []Expressio
 
 	//Выполняем наш SQL запрос
 	if _, err = db.Exec(data); err != nil {
-		return err
+		return fmt.Errorf("UpdateData:" + sqlExecErr + ":" + err.Error())
 	}
 
 	return nil
@@ -180,7 +184,8 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return nil, false, 0, err
+		return nil, false, 0,
+			fmt.Errorf("ReadDataRow:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 
@@ -188,7 +193,8 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 	// Опредение имени колонок
 	tableName, columns, _, err := getFieldsName(fields)
 	if err != nil {
-		return nil, false, 0, err
+		return nil, false, 0,
+			fmt.Errorf("ReadDataRow:" + err.Error())
 	}
 	// var columnsArr []string
 	// for k, _ := range columns {
@@ -203,7 +209,8 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 
 	rows, err := db.Query(data)
 	if err != nil {
-		return nil, false, 0, err
+		return nil, false, 0,
+			fmt.Errorf("ReadDataRow:" + sqlExecErr + ":" + err.Error())
 	}
 	defer rows.Close()
 
@@ -211,13 +218,13 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 
 		err := rows.Scan(columnsPtr...)
 		if err != nil {
-			return nil, false, 0, err
+			return nil, false, 0,
+				fmt.Errorf("ReadDataRow:" + sqlScanErr + ":" + err.Error())
 		}
 
 		returnValue := clone(fields)
 
 		returnValues = append(returnValues, returnValue)
-		// log.Println(fields)
 
 		cntIter++
 		if countIter == cntIter {
@@ -225,7 +232,8 @@ func ReadDataRow(fields interface{}, expression []Expressions, countIter int) ([
 		}
 	}
 	if err = rows.Err(); err != nil {
-		return returnValues, true, cntIter, err
+		return returnValues, true, cntIter,
+			fmt.Errorf("ReadDataRow:" + sqlSomeOneErr + ":" + err.Error())
 	}
 	if cntIter > 0 {
 		return returnValues, true, cntIter, nil
@@ -297,7 +305,8 @@ func GetNumberOfUsers() (int64, error) {
 	//Подключаемся к БД
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
-		return 0, err
+		return 0,
+			fmt.Errorf("ReadDataRow:" + sqlConErr + ":" + err.Error())
 	}
 	defer db.Close()
 
@@ -305,7 +314,8 @@ func GetNumberOfUsers() (int64, error) {
 	row := db.QueryRow("SELECT COUNT(DISTINCT username) FROM users;")
 	err = row.Scan(&count)
 	if err != nil {
-		return 0, err
+		return 0,
+			fmt.Errorf("ReadDataRow:" + sqlScanErr + ":" + err.Error())
 	}
 
 	return count, nil

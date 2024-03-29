@@ -21,12 +21,14 @@ type quotesLatestAnswerExt struct {
 	coinmarketcup.QuotesLatestAnswer
 }
 
-func RunRetrieverCoins(timeout int) error {
+func RunRetrieverCoins(timeout int, errorMsg chan models.StatusRetriever) error {
+	var chanSrv models.StatusRetriever
 	for {
-		time.Sleep(time.Duration(timeout) * time.Second)
 		if err := retrieverCoins(); err != nil {
-			return err
+			chanSrv.MsgError = err
+			errorMsg <- chanSrv
 		}
+		time.Sleep(time.Duration(timeout) * time.Second)
 	}
 }
 func retrieverCoins() error {
@@ -89,11 +91,16 @@ func getAndSaveFromAPI(cryptoCur []string) error {
 	}
 	for i := range qla.QuotesLatestAnswerResults {
 
+		dateTime, err := models.ConvertDateTimeToMSK(qla.QuotesLatestAnswerResults[i].Last_updated)
+		if err != nil {
+			return fmt.Errorf("getAndSaveFromAPI:" + err.Error())
+		}
+		// dateTimeUTC3, _ := time.ParseInLocation(layout, dateTime, dateTimeLocUTC3)
 		// Добавление найденной валюты в таблицы текущих цен и обновление справочника валют
 		cryptoprices := map[string]string{
 			"CryptoId":     fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Id),
 			"CryptoPrice":  fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Price),
-			"CryptoUpdate": fmt.Sprint(qla.QuotesLatestAnswerResults[i].Last_updated.Format("2006-01-02 15:04:05")),
+			"CryptoUpdate": dateTime,
 		}
 		if err := database.WriteData("cryptoprices", cryptoprices); err != nil {
 			return err
@@ -103,7 +110,7 @@ func getAndSaveFromAPI(cryptoCur []string) error {
 			// "CryptoId":        fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Id),
 			// "CryptoName":      fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Symbol),
 			"CryptoLastPrice": fmt.Sprintf("%v", qla.QuotesLatestAnswerResults[i].Price),
-			"CryptoUpdate":    fmt.Sprint(qla.QuotesLatestAnswerResults[i].Last_updated.Format("2006-01-02 15:04:05")),
+			"CryptoUpdate":    dateTime,
 		}
 		expLst := []database.Expressions{}
 		expLst = append(expLst, database.Expressions{
